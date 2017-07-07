@@ -1,0 +1,149 @@
+<link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
+<style>
+form.form_inicio{
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px;
+  border: solid 2px #86ff8c;
+  border-radius: 5px;
+}
+form.mensaje input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+#messages { list-style-type: none; margin-bottom: 50px; padding: 0;}
+#messages li { padding: 5px 10px; }
+#messages li:nth-child(odd) { background: #d2d2d2; }
+#usuarios { width: 50%; }
+#messages { width: 100%; }
+#messages li{ list-style: none; }
+#users_online li{ cursor: pointer; list-style: none; margin-top: 30px;}
+#select_user{display: none;}
+#contenedor{display: none;  padding:10px;
+.h{margin-bottom:10px;}
+</style>
+<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+<div id="content">
+  <form class="form_inicio">
+    <div class="form-group">
+      <label for="Escriba su nombre">Escriba un alias:</label>
+        <input type="text" class="form-control" id="input_name" placeholder="Su nombre">
+    </div>
+    <button type="submit" class="btn btn-success">Empezar!</button>
+    <button class="btn btn-danger" data-dismiss="modal" type="button">Cerrar ventana</button>
+  </form>
+</div>
+<div id="contenedor">
+  <div class="row h">
+    <div class="col-xs-12">
+      <h2 id="mi_usuario" class="label label-default"></h2>
+    </div>
+  </div>
+  <div class="row h">
+    <div class="col-xs-12">
+      <label class="label label-info">Clic en el nombre que hay debajo para comenzar. </label>
+    </div>
+  </div>
+  <ul id="users_online" class="nav nav-tabs"></ul>
+  <div id="messages" class="tab-content"></div>
+  <span id="status" class="label label-warning"></span>
+  <form class="chatear">
+    <select id="select_user">
+    </select>
+    <!-- <input type="hidden" id="id_user" autocomplete="off" /> -->
+    <input id="m" autocomplete="off" style="margin-right: 10px;" /><button class="btn btn-primary">ENVIAR</button>
+    <button class="btn btn-danger" data-dismiss="modal" type="button">Cerrar ventana</button>
+  </form>
+  <script>
+  $(function(){
+    $('<audio id="audio_fb"><source src="notification.mp3" type="audio/mpeg"></audio>').appendTo("#contenedor");
+    $("#input_name").focus();
+    var socket = io("http://localhost:5000");
+    $(".btn-success").click(function(e){
+      e.preventDefault();
+      $("#input_name").focus();
+      nombre = $("#input_name").val();
+      if (nombre=="") {
+        alert("Escriba su Alias.");
+        $("#input_name").focus();
+        }else{
+          $("#content").slideUp();
+          $("#contenedor").slideDown();
+          $("#m").focus();
+          var user_select = $("#select_user").val();
+          
+          window.user = {
+            id :  socket.io.engine.id,
+            user_name : nombre,
+            role : "user",
+            id_dos : ""
+          }
+        socket.emit("app_user", user);
+
+        socket.on('remove user', function (nuser) {
+          $("#users_online li").find("a[href='#message_" + nuser + "']").remove();
+          $("#select_user option[id="+nuser+"]").remove();
+          $("#message_"+nuser).remove();
+          $("."+nuser).html("<span class='label label-warning' style='text-transform:uppercase;'><strong>Se ha desconectado el usuario que lo estaba atendiendo. :(</strong></span><br><h1>Cerrar ventana para volver a intentarlo.</h1><center><button class='btn btn-danger' data-dismiss='modal' type='button'>Cerrar</button></center>");
+        });
+
+        $('.chatear').submit(function(e){
+          e.preventDefault();
+          data= {
+            'id' : user.id,
+            'names' : nombre,
+            'role' : "user",
+            'id_send' : $("#select_user").val(),
+            'mensaje' : $('#m').val()
+          };
+          socket.emit('chat message', data);
+          $('#m').val('');
+          $('#m').focus();
+        });
+
+        $("#users_online").delegate("li","click",function(e){
+          e.preventDefault();
+          var id_selected = $(this).attr("id");
+          $("#select_user").val(id_selected);
+        });
+        
+        socket.on('chat message', function(msg){
+          $("#message_"+msg.id).find("ul[id='ul_" + msg.id + "']").append($('<li>').text(msg.mensaje));
+          $('#audio_fb')[0].pause();
+          $('#audio_fb')[0].play();
+        });
+
+        socket.emit("admin");
+
+        socket.on('admin', function (nuser) {
+          var key;
+          var user_id;
+          if (jQuery.isEmptyObject(nuser)) {
+              $("#contenedor").html("<span class='label label-warning' style='text-transform:uppercase;'><strong>No hay nadie disponible por el momento. :(</strong></span><br><h1>Cerrar ventana para volver a intentarlo.</h1><center><button class='btn btn-danger' data-dismiss='modal' type='button'>Cerrar</button></center>");
+          }else{
+            for(key in nuser){
+                var linuser = '<li id="'+nuser[key].id+'" class="text-uppercase"><a href="#message_' + nuser[key].id + '" data-toggle="tab">'+ nuser[key].user_name + '</a></li>';
+                var linuser2 = '<option id="'+nuser[key].id+'">'+ nuser[key].id + '</option>';
+                var message_new = '<div class="tab-pane" id="message_'+ nuser[key].id + '"><h3>Chat con "' + nuser[key].user_name + '"</h3><ul id="ul_'+nuser[key].id+'"></ul></div>';
+                $("#messages").html(message_new);
+                $('#users_online').html(linuser);
+                $('#select_user').html(linuser2);
+                $("#mi_usuario").text("Mi usuario es: "+nombre);
+                $("#contenedor").attr({class : nuser[key].id});
+                mod = { 
+                  'admin_id':nuser[key].id,
+                  'user_id' : user.id 
+                };
+                socket.emit("mod_array", mod);
+                break;
+            }
+          }
+        });
+      }
+    });
+    $('#modal_chat').on('hidden.bs.modal', function (e) {
+      e.preventDefault();
+      $(".modal-body").empty();
+      socket.destroy();
+      $(".chat_button").show();
+    });
+  });
+  </script>
+</div>

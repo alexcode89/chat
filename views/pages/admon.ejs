@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>admon</title>
+  <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
+  <style>
+    .form_inicio{margin-top: 15px;}
+    form.mensaje input {padding: 10px; margin-right: .5%; }
+    form.mensaje button { background: rgb(130, 224, 255); border: none; padding: 10px; }
+    #messages { list-style-type: none; margin-bottom: 50px; padding: 0;}
+    #messages li { padding: 5px 10px; }
+    #messages li:nth-child(odd) { background: #d2d2d2; }
+    #usuarios { width: 50%; }
+    #messages { width: 100%; }
+    #messages li{ list-style: none; }
+    #users_online li{ cursor: pointer; list-style: none; margin-top: 30px;}
+    #select_user{display: none;}
+    #contenedor{display: none; margin-top: 10px;}
+    .sidebar{background-color: #f5f5f5; bottom: 0; display: block;overflow-x: hidden;overflow-y: auto;}
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header">
+        <img src="img/banner-lines.png" alt="Lines &amp; Dots Chat" width="50%">CHAT
+      </div>
+    </div><!-- /.container-fluid -->
+  </nav>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="sidebar col-md-3">
+        <h3 class="text-center">Menú</h3>
+        <ul class="nav nav-pills nav-stacked">
+          <li class="active"><a id="btntabChat" href="#tabChat" role="tab" data-toggle="tab">Iniciar Chat</a></li>
+          <li><a id="btnhistorialChat" href="#historialChat" role="tab" data-toggle="tab">Historial de Chats</a></li>
+        </ul>
+      </div>
+      <div class="main col-md-9">
+        <div class="tab-content">
+          <div role="tabpanel" class="tb-pane active" id="tabChat">
+            <div id="content">
+              <form class="form-inline form_inicio">
+                <p class="text-center text-uppercase">Administradores</p><br>
+                <div class="form-group">
+                  <label for="Escriba su nombre">Escriba un alias:</label>
+                    <input type="text" class="form-control" id="input_name" placeholder="Su nombre">
+                </div>
+                <button type="submit" class="btn btn-success" id="empezar">Empezar!</button>
+              </form>
+            </div>
+            <div id="contenedor">
+              <h2 id="mi_usuario" class="label label-info"></h2>
+              <ul id="users_online" class="nav nav-tabs">
+                <h3>Usuarios en línea</h3>
+              </ul>
+              <div id="messages" class="tab-content">
+              </div>
+              <span id="status" class="label label-warning"></span>
+              <div style="clear:both;"></div>
+              <form id="chatAdmin" class="mensaje">
+                <select id="select_user">
+                </select>
+                <input id="m" autocomplete="off" /><button>ENVIAR</button>
+              </form>
+              <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+              <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+              <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+              <script>
+              $(function(){
+                Notification.requestPermission(function(permission){
+                  $('<audio id="audio_fb"><source src="notification.mp3" type="audio/mpeg"></audio>').appendTo("body");
+                  $("#status").hide();
+                  $("#input_name").focus();
+                  $("#btnhistorialChat").click(function(e){
+                    e.preventDefault();
+                    var socket = io();
+                    $("#tabChat").hide();
+                    $("#historialChat").show();
+                    socket.emit("data");
+                    socket.on("data",function(res){
+                      $("#user_chats li").empty();
+                      $("#contentUserchats").empty();
+                      for(key in res){
+                        p = "<li><a href='#"+res[key].id+"' role='tab' data-toggle='tab' class='"+res[key].id+"'>"+res[key].nombre+"</a></li>";
+                        pcontent = "<div role='tabpanel' class='tab-pane' id='"+res[key].id+"'></div>";
+                        $("#user_chats").append(p);
+                        $("#contentUserchats").append(pcontent);
+                      }
+                    });
+                  });
+                  $("#user_chats").on("click","li a",function(e){
+                    e.preventDefault();
+                    var socket = io();
+                    id_chat = $(this).attr("class");
+                    $(".tb-pane").removeAttr("class","active");
+                    socket.emit("dataChat", id_chat);
+                    socket.on("dataChat",function(res){
+                      $("#contentUserchats #" + id_chat).empty();
+                      for(key in res){
+                        p = "<p>" + res[key].mensaje + "</p>";
+                        $("#contentUserchats #" + id_chat).append(p);
+                      }
+                    });
+                  });
+                  $("#btntabChat").click(function(e){
+                    e.preventDefault();
+                    $("#historialChat").hide();
+                    $("#tabChat").show();
+                  });
+                  $("#empezar").click(function(e){
+                    e.preventDefault();
+                    nombre=$("#input_name").val();
+                    role="";
+                    status="";
+                    user = {};
+                    if (nombre=="") {
+                        alert("Escriba su Alias.");
+                    }else{
+                      var socket = io();
+                      $("#content").slideUp();
+                      $("#contenedor").slideDown();
+                      var socket = io.connect();
+                      $("#m").focus();
+                      var user_select = $("#select_user").val();
+
+                      socket.on("connect", function(){
+                        window.user = {
+                          id :  socket.io.engine.id,
+                          user_name : nombre,
+                          role : "Admin",
+                          status : "0"
+                        };
+                        $("#mi_usuario").text("Mi usuario es: "+user.user_name);
+                        socket.emit("app_user", user);
+                      });
+                      $('#chatAdmin').submit(function(e){
+                        e.preventDefault();
+                        data= {
+                          id : user.id,
+                          names : nombre,
+                          role : "Admin",
+                          id_send : $("#select_user").val(),
+                          mensaje : $('#m').val()
+                        };
+                        socket.emit('chat message', data);
+                        $('#m').val('');
+                        $("#m").focus();
+                      });
+
+                      $("#users_online").delegate("li","click",function(e){
+                        e.preventDefault();
+                        var id_selected = $(this).attr("id");
+                        $("#select_user").val(id_selected);
+                      });
+
+                      socket.on('chat message', function(msg){
+                        $("#message_"+msg.id).find("ul[id='ul_" + msg.id + "']").append($('<li>').text(msg.mensaje));
+                        $("#audio_fb")[0].play();
+                      });
+
+                      socket.on("event", function(status){
+                        $("#status").text(status).fadeIn(4000);
+                        $("#status").text(status).fadeOut(4000);
+                      });
+                      socket.emit("all_users");
+
+                      socket.on('all_users', function (nuser) {
+                        var key;
+                        var user_id;
+                        for(key in nuser){
+                            var linuser = '<li id="'+nuser[arreglo].id+'" class="text-uppercase"><a href="#message_' + nuser[arreglo].id + '" data-toggle="tab">'+ nuser[arreglo].user_name + '</a></li>';
+                              var linuser2 = '<option id="'+nuser[arreglo].id+'">'+ nuser[arreglo].id + '</option>';
+                              var message_new = '<div class="tab-pane" id="message_'+ nuser[arreglo].id + '"><h3>Chat con "' + nuser[arreglo].user_name + '"</h3><ul id="ul_'+nuser[arreglo].id+'"></ul></div>';
+                              $("#messages").append(message_new);
+                              $('#users_online').append(linuser);
+                              $('#select_user').append(linuser2);
+                        }
+                      });
+
+                      socket.on("nuevo usuario",function(retorno){
+                          var message_new = '<div class="tab-pane" id="message_' + retorno.id + '"><h3>Chat de "' + retorno.nombre + '"</h3><ul id="ul_'+retorno.id+'"></ul></div>';
+                          $("#messages").append(message_new);
+                          var linuser = '<li id="'+retorno.id+'"><a href="#message_' + retorno.id + '" data-toggle="tab">' + retorno.nombre + '</a></li>';
+                          $('#users_online').append(linuser);
+                          var linuser2 = '<option id="' + retorno.id + '">'+ retorno.id + '</option>';
+                          $('#select_user').append(linuser2);
+                          if(! ('Notification' in window) ){
+                            alert('Web Notification is not supported');
+                            return;
+                          } 
+
+                          Notification.requestPermission(function(permission){
+                            var notification = new Notification("!Nuevo usuario conectado!",{body:'Atiende al nuevo usuario '+retorno.nombre, icon:"img/user.jpg"});
+                          });
+                      });
+
+                      socket.on('remove user', function (nuser) {
+                        $("#users_online li").find("a[href='#message_" + nuser + "']").remove();
+                        $("#select_user option[id="+nuser+"]").remove();
+                        $("#message_"+nuser).remove();
+                      });
+                    }
+                  });
+                });
+              });
+              </script>
+            </div>
+          </div>
+          <div role="tabpanel" class="tab-pane" id="historialChat">
+              <h3 class="text-left" style="text-transform: uppercase;">
+                <span class="label label-info">
+                  Seleccione un chat para ver el historial.
+                </span>
+              </h3>
+            <ul class="nav nav-tabs" role="tablist" id="user_chats">
+            </ul>
+            <div class='tab-content' id="contentUserchats">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
