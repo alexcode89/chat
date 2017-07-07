@@ -15,10 +15,10 @@ app.use(function(req, res, next) {
   next();
 });
 var dbConfig = {
-	host     : "localhost",
-	user     : "root",
+	host     : "",
+	user     : "",
 	password : "",
-	database : "server_chat",
+	database : "",
 	conncetionLimit : 50
 };
 var connectionMysql;
